@@ -117,7 +117,7 @@ CLI 和 TUI 只是客户端。
 
 每个项目平均不到十元钱，而且加入星球的服务远不止这些项目。
 
-<div align="center"><img src='docs/images/2026-06-10_15-50-05.jpg' width=400 alt=''> </img></div>
+<div align="center"><img src='docs/images/2026-06-10_16-32-35.jpg' width=400 alt=''> </img></div>
 
 加入知识星球后，记得加如下微信，发动付款截图，拉你到星球交流群：
 
@@ -297,7 +297,7 @@ S7、Skills、Subagents 与 MCP
 
 每个项目平均不到十元钱，而且加入星球的服务远不止这些项目。
 
-<div align="center"><img src='docs/images/2026-06-10_15-50-05.jpg' width=400 alt=''> </img></div>
+<div align="center"><img src='docs/images/2026-06-10_16-32-35.jpg' width=400 alt=''> </img></div>
 
 加入知识星球后，记得加如下微信，发动付款截图，拉你到星球交流群：
 
