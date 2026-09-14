@@ -72,11 +72,12 @@ def _make_provider(
     input_tokens: int = 100,
     output_tokens: int = 50,
     cache_read: int = 0,
+    model: str = "test-model",
 ) -> tuple[AnthropicProvider, MagicMock]:
     final = _make_final(stop_reason, content, input_tokens, output_tokens, cache_read)
     client = MagicMock()
     client.messages.stream.return_value = FakeStream(texts or [], final)
-    return AnthropicProvider(model="test-model", client=client), client
+    return AnthropicProvider(model=model, client=client), client
 
 
 async def _chat(
@@ -189,6 +190,7 @@ async def test_text_accumulated_from_tokens() -> None:
 # 设计：用 monkeypatch 清除环境变量后实例化，确认 fail-fast 行为，防止"幽灵 run"（有 started 但无 finished 事件）
 async def test_missing_api_key_raises_system_exit(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
     with pytest.raises(SystemExit):
         AnthropicProvider(model="any")
 
@@ -201,3 +203,32 @@ async def test_no_tokens_when_response_is_empty() -> None:
     tokens = [e for e in events if e.type == "llm.token"]  # type: ignore[attr-defined]
     assert tokens == []
     assert result.text == ""
+
+
+# 功能：验证 DeepSeek 模型自动使用官方 Anthropic 兼容地址和专用密钥
+# 设计：mock SDK 构造器并检查参数，避免单元测试消耗真实 API 额度
+async def test_deepseek_model_uses_anthropic_compatible_endpoint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    constructor = MagicMock()
+    monkeypatch.setattr("loopsmith.core.llm.provider.anthropic.AsyncAnthropic", constructor)
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-deepseek-key")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    AnthropicProvider(model="deepseek-v4-flash")
+
+    constructor.assert_called_once_with(
+        api_key="test-deepseek-key",
+        base_url="https://api.deepseek.com/anthropic",
+    )
+
+
+# 功能：验证 DeepSeek 请求关闭思考模式，保证现有工具循环不丢失 reasoning block
+# 设计：注入假流式客户端并检查 stream 参数，聚焦多轮工具兼容性
+async def test_deepseek_request_disables_thinking_mode() -> None:
+    provider, client = _make_provider(model="deepseek-v4-flash")
+
+    await _chat(provider)
+
+    kwargs = client.messages.stream.call_args.kwargs
+    assert kwargs["extra_body"] == {"reasoning": {"effort": "none"}}
