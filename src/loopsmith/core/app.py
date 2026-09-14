@@ -56,6 +56,20 @@ def _now() -> str:
     return datetime.datetime.now(UTC).isoformat()
 
 
+# 注册 Unix 风格退出信号；Windows 不支持时返回 False 并交由 KeyboardInterrupt 关闭
+def _install_signal_handlers(
+    loop: asyncio.AbstractEventLoop,
+    shutdown: asyncio.Event,
+) -> bool:
+    try:
+        loop.add_signal_handler(signal.SIGINT, shutdown.set)
+        loop.add_signal_handler(signal.SIGTERM, shutdown.set)
+    except NotImplementedError:
+        logger.debug("asyncio signal handlers are unavailable; using KeyboardInterrupt")
+        return False
+    return True
+
+
 class CoreApp:
     def __init__(self) -> None:
         self._start_time = time.monotonic()
@@ -233,7 +247,10 @@ class CoreApp:
         sessions_root = Path("~/.loopsmith/sessions").expanduser()
         store = SessionStore(sessions_root)
         assert self._config is not None
-        compact_provider = AnthropicProvider(self._config.llm.default_model)
+        compact_provider = AnthropicProvider(
+            self._config.llm.default_model,
+            base_url=self._config.llm.base_url,
+        )
 
         self._mcp_manager = McpServerManager()
         if self._config.mcp.servers:
@@ -275,23 +292,26 @@ class CoreApp:
 
         loop = asyncio.get_running_loop()
         shutdown = asyncio.Event()
-        loop.add_signal_handler(signal.SIGINT, shutdown.set)
-        loop.add_signal_handler(signal.SIGTERM, shutdown.set)
+        _install_signal_handlers(loop, shutdown)
 
-        await shutdown.wait()
-
-        logger.info("shutting down")
-        for run_task in list(self._running_runs):
-            run_task.cancel()
-        if self._running_runs:
-            await asyncio.gather(*self._running_runs, return_exceptions=True)
-        if self._mcp_manager is not None:
-            await self._mcp_manager.stop_all()
-        await server.stop()
-        if self._trace is not None:
-            await self._trace.stop()
+        try:
+            await shutdown.wait()
+        finally:
+            logger.info("shutting down")
+            for run_task in list(self._running_runs):
+                run_task.cancel()
+            if self._running_runs:
+                await asyncio.gather(*self._running_runs, return_exceptions=True)
+            if self._mcp_manager is not None:
+                await self._mcp_manager.stop_all()
+            await server.stop()
+            if self._trace is not None:
+                await self._trace.stop()
 
 
 # 同步入口：启动 CoreApp 事件循环
 def run() -> None:
-    asyncio.run(CoreApp().run())
+    try:
+        asyncio.run(CoreApp().run())
+    except KeyboardInterrupt:
+        pass

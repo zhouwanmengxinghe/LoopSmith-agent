@@ -40,6 +40,10 @@ port = 7437
 level  = "INFO"
 file   = "~/.loopsmith/logs/core.log"
 format = "text"    # "text" | "json"
+
+[llm]
+default_model = "deepseek-v4-flash"
+base_url = "https://api.deepseek.com/anthropic"
 ```
 
 ### `.env`
@@ -60,6 +64,9 @@ cp .env.example .env
 | `LOOPSMITH_LOG_LEVEL` | `INFO` | 日志级别（DEBUG / INFO / WARNING / ERROR） |
 | `LOOPSMITH_LOG_FILE` | `~/.loopsmith/logs/core.log` | 日志文件路径（留空则仅输出 stderr） |
 | `LOOPSMITH_LOG_FORMAT` | `text` | 日志格式（`text` 或 `json`） |
+| `LOOPSMITH_LLM_DEFAULT_MODEL` | `claude-sonnet-4-6` | LLM 模型名；`deepseek-*` 会自动使用 DeepSeek Anthropic 兼容地址 |
+| `LOOPSMITH_LLM_BASE_URL` | 空 | 可选的 Anthropic 兼容 API 地址 |
+| `DEEPSEEK_API_KEY` | 空 | DeepSeek API 密钥；仅在本机 `.env` 中配置 |
 
 ---
 
