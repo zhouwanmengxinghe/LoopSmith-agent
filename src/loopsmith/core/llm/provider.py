@@ -15,6 +15,7 @@ _SYSTEM_PROMPT = (
     "Use the available tools to complete the user's goal. "
     "When the goal is fully achieved, respond with a final answer and do not call any more tools."
 )
+_DEEPSEEK_ANTHROPIC_BASE_URL = "https://api.deepseek.com/anthropic"
 
 
 # 返回当前 UTC 时间的 ISO 8601 字符串
@@ -24,12 +25,37 @@ def _now() -> str:
 
 class AnthropicProvider:
     # 初始化 Anthropic 客户端；client 可在测试时注入以跳过 API key 检查
-    def __init__(self, model: str, client: Any = None) -> None:
+    def __init__(
+        self,
+        model: str,
+        client: Any = None,
+        *,
+        base_url: str | None = None,
+    ) -> None:
+        if base_url is None and model.startswith("deepseek-"):
+            base_url = _DEEPSEEK_ANTHROPIC_BASE_URL
+        self._is_deepseek = model.startswith("deepseek-") or (
+            base_url is not None and "api.deepseek.com" in base_url
+        )
+
         if client is None:
-            api_key = os.environ.get("ANTHROPIC_API_KEY")
+            if self._is_deepseek:
+                api_key = os.environ.get("DEEPSEEK_API_KEY") or os.environ.get(
+                    "ANTHROPIC_API_KEY"
+                )
+            else:
+                api_key = os.environ.get("ANTHROPIC_API_KEY")
             if not api_key:
-                raise SystemExit("ANTHROPIC_API_KEY not set")
-            self._client: Any = anthropic.AsyncAnthropic(api_key=api_key)
+                expected = (
+                    "DEEPSEEK_API_KEY or ANTHROPIC_API_KEY"
+                    if self._is_deepseek
+                    else "ANTHROPIC_API_KEY"
+                )
+                raise SystemExit(f"{expected} not set")
+            client_kwargs: dict[str, Any] = {"api_key": api_key}
+            if base_url is not None:
+                client_kwargs["base_url"] = base_url
+            self._client: Any = anthropic.AsyncAnthropic(**client_kwargs)
         else:
             self._client = client
         self._model = model
@@ -69,6 +95,9 @@ class AnthropicProvider:
             "system": system_blocks,
             "messages": messages,
         }
+        if self._is_deepseek:
+            # 当前循环没有保存 reasoning block；关闭思考模式可保证多轮工具调用兼容。
+            kwargs["extra_body"] = {"reasoning": {"effort": "none"}}
         if tools:
             kwargs["tools"] = tools
 

@@ -35,6 +35,7 @@ class AgentConfig:
 class LlmConfig:
     default_model: str = _DEFAULT_MODEL
     router: str = "static"  # "static" | "rule_based" (S4) | "cost_budget" (S6)
+    base_url: str | None = None
 
 
 @dataclass
@@ -130,7 +131,7 @@ def _apply_toml(config: LoopSmithConfig, data: dict[str, Any]) -> None:
         llm = data["llm"]
         if not isinstance(llm, dict):
             raise SystemExit("Config error: [llm] must be a table")
-        unknown_llm: set[str] = set(llm.keys()) - {"default_model", "router"}
+        unknown_llm: set[str] = set(llm.keys()) - {"default_model", "router", "base_url"}
         if unknown_llm:
             raise SystemExit(f"Unknown [llm] keys: {', '.join(sorted(unknown_llm))}")
         if "default_model" in llm:
@@ -143,6 +144,11 @@ def _apply_toml(config: LoopSmithConfig, data: dict[str, Any]) -> None:
             if not isinstance(val, str):
                 raise SystemExit("Config error: llm.router must be a string")
             config.llm.router = val
+        if "base_url" in llm:
+            val = llm["base_url"]
+            if not isinstance(val, str):
+                raise SystemExit("Config error: llm.base_url must be a string")
+            config.llm.base_url = val
 
     if "trace" in data:
         trace = data["trace"]
@@ -211,6 +217,10 @@ def _apply_env(config: LoopSmithConfig) -> None:
     default_model = os.environ.get("LOOPSMITH_LLM_DEFAULT_MODEL")
     if default_model is not None:
         config.llm.default_model = default_model
+
+    llm_base_url = os.environ.get("LOOPSMITH_LLM_BASE_URL")
+    if llm_base_url is not None:
+        config.llm.base_url = llm_base_url
 
     trace_enabled = os.environ.get("LOOPSMITH_TRACE_ENABLED")
     if trace_enabled is not None:

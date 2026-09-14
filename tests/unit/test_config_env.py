@@ -85,3 +85,14 @@ def test_priority_chain_full(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     cfg = get_config()
 
     assert cfg.port == 8000
+
+
+# 功能：验证环境变量能配置 Anthropic 兼容 API 的 base URL
+# 设计：在隔离目录设置 DeepSeek 地址，直接检查 LlmConfig 字段避免发起网络请求
+def test_llm_base_url_from_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("LOOPSMITH_LLM_BASE_URL", "https://api.deepseek.com/anthropic")
+
+    cfg = get_config()
+
+    assert cfg.llm.base_url == "https://api.deepseek.com/anthropic"
