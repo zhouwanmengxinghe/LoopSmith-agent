@@ -284,25 +284,6 @@ LoopSmith/
 └── RUNBOOK.md               # 配置、运维与排障手册
 ```
 
-## 阶段分支
-
-| 分支 | 学习主题 |
-|---|---|
-| `stage/s0` | 项目骨架、配置系统与协议契约 |
-| `stage/s1` | 单进程 Agent 最小闭环 |
-| `stage/s2` | Core 守护进程、CLI/TUI 客户端与 IPC |
-| `stage/s3` | 自主规划、任务工具、事件流与 Trace |
-| `stage/s4` | Session、Thread、Notes 与多轮会话 |
-| `stage/s5` | 工具权限审批、失败分类与持久化策略 |
-| `stage/s6` | 上下文水位、结果截断与 Compaction |
-| `stage/s7` | Skills、Subagents、MCP 与多 Agent 编排 |
-
-可以从最小阶段开始逐步阅读：
-
-```bash
-git switch stage/s0
-git switch stage/s1
-```
 
 ## 开发与验证
 
@@ -328,7 +309,3 @@ uv run python scripts/gen_protocol_doc.py --check
 ```bash
 uv run python scripts/gen_protocol_doc.py
 ```
-
-## License
-
-本项目使用 [MIT License](./LICENSE)。
