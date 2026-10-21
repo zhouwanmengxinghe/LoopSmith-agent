@@ -32,12 +32,14 @@ class TaskManager:
         path = self._dir / f"task_{task_id}.json"
         if not path.exists():
             raise ValueError(f"task {task_id} not found")
-        return Task.from_dict(json.loads(path.read_text()))
+        return Task.from_dict(json.loads(path.read_text(encoding="utf-8")))
 
     # 将任务写入对应 JSON 文件
     def _save(self, task: Task) -> None:
         path = self._dir / f"task_{task.id}.json"
-        path.write_text(json.dumps(task.to_dict(), indent=2, ensure_ascii=False))
+        path.write_text(
+            json.dumps(task.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8"
+        )
 
     # 创建新任务，写入 JSON 文件，返回 Task
     def create(
@@ -96,7 +98,7 @@ class TaskManager:
         tasks = []
         for f in sorted(self._dir.glob("task_*.json"), key=lambda p: int(p.stem.split("_")[1])):
             try:
-                tasks.append(Task.from_dict(json.loads(f.read_text())))
+                tasks.append(Task.from_dict(json.loads(f.read_text(encoding="utf-8"))))
             except (ValueError, KeyError):
                 pass
         return tasks
@@ -105,14 +107,16 @@ class TaskManager:
     def _clear_dependency(self, completed_id: int) -> None:
         for f in self._dir.glob("task_*.json"):
             try:
-                data = json.loads(f.read_text())
+                data = json.loads(f.read_text(encoding="utf-8"))
             except (ValueError, json.JSONDecodeError):
                 continue
             blocked = [int(x) for x in data.get("blocked_by", [])]
             if completed_id in blocked:
                 data["blocked_by"] = [x for x in blocked if x != completed_id]
                 data["updated_at"] = _now()
-                f.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+                f.write_text(
+                    json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
+                )
 
     # 格式化任务列表摘要，供 task_list 工具返回给 Agent
     def format_list(self) -> str:

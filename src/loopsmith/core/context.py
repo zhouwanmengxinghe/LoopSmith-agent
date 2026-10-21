@@ -71,6 +71,10 @@ class ExecutionContext:
         else:
             self.messages.append({"role": "user", "content": [block]})
 
+    # 追加一条纯文本 user 消息（用于收尾守卫的提醒，不占用 tool_result 语义）
+    def add_user_message(self, text: str) -> None:
+        self.messages.append({"role": "user", "content": [{"type": "text", "text": text}]})
+
     # 返回 True 表示 loop 应停止（状态不再是 running）
     def is_done(self) -> bool:
         return self.status != "running"

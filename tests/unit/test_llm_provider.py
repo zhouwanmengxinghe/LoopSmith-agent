@@ -73,11 +73,18 @@ def _make_provider(
     output_tokens: int = 50,
     cache_read: int = 0,
     model: str = "test-model",
+    deepseek_thinking: bool = False,
+    deepseek_thinking_effort: str = "low",
 ) -> tuple[AnthropicProvider, MagicMock]:
     final = _make_final(stop_reason, content, input_tokens, output_tokens, cache_read)
     client = MagicMock()
     client.messages.stream.return_value = FakeStream(texts or [], final)
-    return AnthropicProvider(model=model, client=client), client
+    return AnthropicProvider(
+        model=model,
+        client=client,
+        deepseek_thinking=deepseek_thinking,
+        deepseek_thinking_effort=deepseek_thinking_effort,
+    ), client
 
 
 async def _chat(
@@ -231,4 +238,27 @@ async def test_deepseek_request_disables_thinking_mode() -> None:
     await _chat(provider)
 
     kwargs = client.messages.stream.call_args.kwargs
-    assert kwargs["extra_body"] == {"reasoning": {"effort": "none"}}
+    assert kwargs["thinking"] == {"type": "disabled"}
+
+
+# 功能：验证低强度推理显式启用且返回的思考块在后续请求中原样保留
+# 设计：模拟两轮流式响应检查接口参数与消息往返，避免真实模型调用
+@pytest.mark.parametrize("effort", ["low", "high"])
+async def test_deepseek_thinking_roundtrip(effort: str) -> None:
+    block = MagicMock(type="thinking", thinking="synthetic test reasoning", signature="sig")
+    provider, client = _make_provider(
+        model="deepseek-v4-flash",
+        content=[block],
+        deepseek_thinking=True,
+        deepseek_thinking_effort=effort,
+    )
+    response, _ = await _chat(provider)
+    assert response.thinking_blocks == [
+        {"type": "thinking", "thinking": "synthetic test reasoning", "signature": "sig"}
+    ]
+    messages = [{"role": "assistant", "content": response.thinking_blocks}]
+    await _chat(provider, messages=messages)
+    kwargs = client.messages.stream.call_args.kwargs
+    assert kwargs["messages"] == messages
+    assert kwargs["thinking"] == {"type": "enabled"}
+    assert kwargs["output_config"] == {"effort": effort}

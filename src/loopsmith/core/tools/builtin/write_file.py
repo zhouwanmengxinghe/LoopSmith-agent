@@ -58,6 +58,8 @@ class WriteFileTool(BaseTool):
 
         path = Path(path_str)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content, encoding="utf-8")
+        # newline="\n" 禁止平台换行翻译：Windows 上默认会把 \n 写成 \r\n，
+        # 导致同一份内容在 Windows/Linux 落盘字节不一致（导出的补丁会变成 CRLF）。
+        path.write_text(content, encoding="utf-8", newline="\n")
 
         return ToolResult(content=f"wrote {len(encoded)} bytes to {path_str}")

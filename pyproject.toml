@@ -62,6 +62,10 @@ explicit_package_bases = true # 明确包根，减少隐式命名空间误判
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+# 临时工作目录与缓存固定到仓库内（.gitignore 已忽略），避免受系统临时目录影响：
+# Windows 上 %TEMP% 残留坏 ACL 时，默认 basetemp 会直接导致大量用例 setup 失败。
+addopts = "--basetemp=.pytest-tmp/base"
+cache_dir = ".pytest-tmp/.pytest_cache"
 markers = [
     "integration: marks tests that call the real Anthropic API (require ANTHROPIC_API_KEY)",
 ]

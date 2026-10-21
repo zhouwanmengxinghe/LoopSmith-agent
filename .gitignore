@@ -16,3 +16,7 @@ uv.lock
 .DS_Store
 *.log
 workspace/
+.eval-data/
+.analysis-test-tmp/
+.pytest-tmp/
+.workbuddy/

@@ -19,6 +19,36 @@ def free_port() -> int:
     return port  # socket released; daemon can bind to this port
 
 
+# Windows 上后台拉起 daemon 时不创建控制台窗口
+def _daemon_spawn_kwargs() -> dict[str, int]:
+    if os.name == "nt":
+        return {"creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)}
+    return {}
+
+
+# 结束 daemon；Windows 需用 taskkill /T 一并清理子进程，terminate 只杀父进程
+def _stop_daemon(proc: subprocess.Popen[bytes]) -> None:
+    if proc.poll() is not None:
+        return
+    if os.name == "nt":
+        subprocess.run(
+            ["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+            capture_output=True,
+            check=False,
+        )
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+        return
+    proc.terminate()
+    try:
+        proc.wait(timeout=2)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
+
+
 @pytest.fixture
 async def running_daemon(free_port: int) -> AsyncGenerator[subprocess.Popen[bytes], None]:
     env = os.environ.copy()
@@ -26,9 +56,14 @@ async def running_daemon(free_port: int) -> AsyncGenerator[subprocess.Popen[byte
     env["LOOPSMITH_LOG_FILE"] = ""
     env["LOOPSMITH_LOG_LEVEL"] = "WARNING"
 
-    proc = subprocess.Popen([sys.executable, "-m", "loopsmith.core"], env=env)
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "loopsmith.core"],
+        env=env,
+        **_daemon_spawn_kwargs(),
+    )
 
-    deadline = time.monotonic() + 3.0
+    # Windows 冷启动 Python + 导入 textual/httpx 较慢，给足 10 秒
+    deadline = time.monotonic() + 10.0
     while time.monotonic() < deadline:
         await asyncio.sleep(0.05)
         try:
@@ -39,15 +74,9 @@ async def running_daemon(free_port: int) -> AsyncGenerator[subprocess.Popen[byte
         except (ConnectionRefusedError, OSError):
             pass
     else:
-        proc.terminate()
-        proc.wait()
-        pytest.fail("Daemon did not start within 3 seconds")
+        _stop_daemon(proc)
+        pytest.fail("Daemon did not start within 10 seconds")
 
     yield proc
 
-    proc.terminate()
-    try:
-        proc.wait(timeout=2)
-    except subprocess.TimeoutExpired:
-        proc.kill()
-        proc.wait()
+    _stop_daemon(proc)

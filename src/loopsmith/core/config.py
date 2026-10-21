@@ -36,6 +36,10 @@ class LlmConfig:
     default_model: str = _DEFAULT_MODEL
     router: str = "static"  # "static" | "rule_based" (S4) | "cost_budget" (S6)
     base_url: str | None = None
+    provider: str = "anthropic"  # anthropic | hku
+    max_output_tokens: int = 4096
+    context_window: int = 0  # 未确认模型窗口时禁用比例估计
+    timeout_s: int = 120
 
 
 @dataclass
@@ -52,7 +56,7 @@ class PermissionConfig:
 
 @dataclass
 class CompactionConfig:
-    auto_threshold: float = 0.0    # context_pct 触发自动压缩的阈值（0 表示禁用，推荐用手动 /compact）
+    auto_threshold: float = 0.0  # context_pct 触发自动压缩阈值；0 表示禁用
     tool_result_limit: int = 8_000  # tool_result 截断触发字符数
     tool_result_keep: int = 4_000   # 截断后保留的前缀字符数
 
@@ -118,7 +122,8 @@ def get_config() -> LoopSmithConfig:
 
 # 将已解析的 TOML 根表写入 config；未知小节或类型错误时退出进程
 def _apply_toml(config: LoopSmithConfig, data: dict[str, Any]) -> None:
-    unknown = set(data.keys()) - {"core", "logging", "agent", "llm", "trace", "permission", "compaction", "mcp"}
+    known_top = {"core", "logging", "agent", "llm", "trace", "permission", "compaction", "mcp"}
+    unknown = set(data.keys()) - known_top
     if unknown:
         raise SystemExit(f"Unknown top-level config keys: {', '.join(sorted(unknown))}")
 
@@ -171,7 +176,10 @@ def _apply_toml(config: LoopSmithConfig, data: dict[str, Any]) -> None:
         llm = data["llm"]
         if not isinstance(llm, dict):
             raise SystemExit("Config error: [llm] must be a table")
-        unknown_llm: set[str] = set(llm.keys()) - {"default_model", "router", "base_url"}
+        unknown_llm: set[str] = set(llm.keys()) - {
+            "default_model", "router", "base_url", "provider",
+            "max_output_tokens", "context_window", "timeout_s",
+        }
         if unknown_llm:
             raise SystemExit(f"Unknown [llm] keys: {', '.join(sorted(unknown_llm))}")
         if "default_model" in llm:
@@ -189,6 +197,17 @@ def _apply_toml(config: LoopSmithConfig, data: dict[str, Any]) -> None:
             if not isinstance(val, str):
                 raise SystemExit("Config error: llm.base_url must be a string")
             config.llm.base_url = val
+        if "provider" in llm:
+            if llm["provider"] not in ("anthropic", "hku"):
+                raise SystemExit("Config error: llm.provider must be anthropic or hku")
+            config.llm.provider = llm["provider"]
+        for key in ("max_output_tokens", "context_window", "timeout_s"):
+            if key in llm:
+                value = llm[key]
+                minimum = 0 if key == "context_window" else 1
+                if type(value) is not int or value < minimum:
+                    raise SystemExit(f"Config error: invalid llm.{key}")
+                setattr(config.llm, key, value)
 
     if "trace" in data:
         trace = data["trace"]
@@ -230,7 +249,8 @@ def _apply_toml(config: LoopSmithConfig, data: dict[str, Any]) -> None:
         comp = data["compaction"]
         if not isinstance(comp, dict):
             raise SystemExit("Config error: [compaction] must be a table")
-        unknown_comp: set[str] = set(comp.keys()) - {"auto_threshold", "tool_result_limit", "tool_result_keep"}
+        known_comp = {"auto_threshold", "tool_result_limit", "tool_result_keep"}
+        unknown_comp: set[str] = set(comp.keys()) - known_comp
         if unknown_comp:
             raise SystemExit(f"Unknown [compaction] keys: {', '.join(sorted(unknown_comp))}")
         if "auto_threshold" in comp:
@@ -241,12 +261,16 @@ def _apply_toml(config: LoopSmithConfig, data: dict[str, Any]) -> None:
         if "tool_result_limit" in comp:
             val = comp["tool_result_limit"]
             if not isinstance(val, int) or val <= 0:
-                raise SystemExit("Config error: compaction.tool_result_limit must be a positive integer")
+                raise SystemExit(
+                    "Config error: compaction.tool_result_limit must be a positive integer"
+                )
             config.compaction.tool_result_limit = val
         if "tool_result_keep" in comp:
             val = comp["tool_result_keep"]
             if not isinstance(val, int) or val <= 0:
-                raise SystemExit("Config error: compaction.tool_result_keep must be a positive integer")
+                raise SystemExit(
+                    "Config error: compaction.tool_result_keep must be a positive integer"
+                )
             config.compaction.tool_result_keep = val
 
     if "mcp" in data:
@@ -267,7 +291,9 @@ def _apply_toml(config: LoopSmithConfig, data: dict[str, Any]) -> None:
                 raise SystemExit(f"Config error: mcp.servers[{i}].name must be a non-empty string")
             transport = srv.get("transport", "stdio")
             if transport not in ("stdio", "tcp"):
-                raise SystemExit(f"Config error: mcp.servers[{i}].transport must be 'stdio' or 'tcp'")
+                raise SystemExit(
+                    f"Config error: mcp.servers[{i}].transport must be 'stdio' or 'tcp'"
+                )
             s = McpServerConfig(name=name, transport=transport)
             if "command" in srv:
                 val = srv["command"]
@@ -345,6 +371,22 @@ def _apply_env(config: LoopSmithConfig) -> None:
     if llm_base_url is not None:
         config.llm.base_url = llm_base_url
 
+    provider = os.environ.get("LOOPSMITH_LLM_PROVIDER")
+    if provider is not None:
+        if provider not in ("anthropic", "hku"):
+            raise SystemExit("LOOPSMITH_LLM_PROVIDER must be anthropic or hku")
+        config.llm.provider = provider
+    for key in ("max_output_tokens", "context_window", "timeout_s"):
+        raw = os.environ.get("LOOPSMITH_LLM_" + key.upper())
+        if raw is not None:
+            try:
+                value = int(raw)
+            except ValueError as exc:
+                raise SystemExit(f"Invalid LLM {key}") from exc
+            if value < (0 if key == "context_window" else 1):
+                raise SystemExit(f"Invalid LLM {key}")
+            setattr(config.llm, key, value)
+
     trace_enabled = os.environ.get("LOOPSMITH_TRACE_ENABLED")
     if trace_enabled is not None:
         config.trace.enabled = trace_enabled.lower() not in ("0", "false", "no")
@@ -363,12 +405,14 @@ def _apply_env(config: LoopSmithConfig) -> None:
             perm_timeout_val = float(perm_timeout)
             if perm_timeout_val < 0:
                 raise SystemExit(
-                    f"Config error: LOOPSMITH_PERMISSION_TIMEOUT_S must be >= 0, got: {perm_timeout!r}"
+                    f"Config error: LOOPSMITH_PERMISSION_TIMEOUT_S must be >= 0, "
+                    f"got: {perm_timeout!r}"
                 )
             config.permission.timeout_s = perm_timeout_val
         except ValueError:
             raise SystemExit(
-                f"Config error: LOOPSMITH_PERMISSION_TIMEOUT_S must be a number, got: {perm_timeout!r}"
+                f"Config error: LOOPSMITH_PERMISSION_TIMEOUT_S must be a number, "
+                f"got: {perm_timeout!r}"
             )
 
     compact_threshold = os.environ.get("LOOPSMITH_COMPACT_THRESHOLD")
@@ -377,12 +421,14 @@ def _apply_env(config: LoopSmithConfig) -> None:
             compact_threshold_val = float(compact_threshold)
             if not (0.0 <= compact_threshold_val <= 1.0):
                 raise SystemExit(
-                    f"Config error: LOOPSMITH_COMPACT_THRESHOLD must be between 0 and 1, got: {compact_threshold!r}"
+                    f"Config error: LOOPSMITH_COMPACT_THRESHOLD must be between 0 and 1, "
+                    f"got: {compact_threshold!r}"
                 )
             config.compaction.auto_threshold = compact_threshold_val
         except ValueError:
             raise SystemExit(
-                f"Config error: LOOPSMITH_COMPACT_THRESHOLD must be a number, got: {compact_threshold!r}"
+                f"Config error: LOOPSMITH_COMPACT_THRESHOLD must be a number, "
+                f"got: {compact_threshold!r}"
             )
 
     compact_tool_limit = os.environ.get("LOOPSMITH_COMPACT_TOOL_LIMIT")
@@ -391,12 +437,14 @@ def _apply_env(config: LoopSmithConfig) -> None:
             compact_tool_limit_val = int(compact_tool_limit)
             if compact_tool_limit_val <= 0:
                 raise SystemExit(
-                    f"Config error: LOOPSMITH_COMPACT_TOOL_LIMIT must be a positive integer, got: {compact_tool_limit!r}"
+                    f"Config error: LOOPSMITH_COMPACT_TOOL_LIMIT must be a positive integer, "
+                    f"got: {compact_tool_limit!r}"
                 )
             config.compaction.tool_result_limit = compact_tool_limit_val
         except ValueError:
             raise SystemExit(
-                f"Config error: LOOPSMITH_COMPACT_TOOL_LIMIT must be an integer, got: {compact_tool_limit!r}"
+                f"Config error: LOOPSMITH_COMPACT_TOOL_LIMIT must be an integer, "
+                f"got: {compact_tool_limit!r}"
             )
 
     compact_tool_keep = os.environ.get("LOOPSMITH_COMPACT_TOOL_KEEP")
@@ -405,10 +453,12 @@ def _apply_env(config: LoopSmithConfig) -> None:
             compact_tool_keep_val = int(compact_tool_keep)
             if compact_tool_keep_val <= 0:
                 raise SystemExit(
-                    f"Config error: LOOPSMITH_COMPACT_TOOL_KEEP must be a positive integer, got: {compact_tool_keep!r}"
+                    f"Config error: LOOPSMITH_COMPACT_TOOL_KEEP must be a positive integer, "
+                    f"got: {compact_tool_keep!r}"
                 )
             config.compaction.tool_result_keep = compact_tool_keep_val
         except ValueError:
             raise SystemExit(
-                f"Config error: LOOPSMITH_COMPACT_TOOL_KEEP must be an integer, got: {compact_tool_keep!r}"
+                f"Config error: LOOPSMITH_COMPACT_TOOL_KEEP must be an integer, "
+                f"got: {compact_tool_keep!r}"
             )

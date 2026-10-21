@@ -51,6 +51,11 @@ class AnthropicProvider:
         client: Any = None,
         *,
         base_url: str | None = None,
+        max_tokens: int = 8192,
+        max_stream_retries: int = _MAX_STREAM_RETRIES,
+        sdk_max_retries: int | None = None,
+        deepseek_thinking: bool = False,
+        deepseek_thinking_effort: str = "low",
     ) -> None:
         if base_url is None and model.startswith("deepseek-"):
             base_url = _DEEPSEEK_ANTHROPIC_BASE_URL
@@ -73,12 +78,21 @@ class AnthropicProvider:
                 )
                 raise SystemExit(f"{expected} not set")
             client_kwargs: dict[str, Any] = {"api_key": api_key}
+            if sdk_max_retries is not None:
+                client_kwargs["max_retries"] = sdk_max_retries
             if base_url is not None:
                 client_kwargs["base_url"] = base_url
             self._client: Any = anthropic.AsyncAnthropic(**client_kwargs)
         else:
             self._client = client
         self._model = model
+        self._deepseek_thinking = deepseek_thinking
+        if deepseek_thinking_effort not in ("low", "high"):
+            raise ValueError("DeepSeek thinking effort must be low or high")
+        self._deepseek_thinking_effort = deepseek_thinking_effort
+        # 单次输出上限与流中断重试次数可由调用方收窄，用于复现固定预算的实验基线
+        self._max_tokens = max_tokens
+        self._max_stream_retries = max(1, max_stream_retries)
 
     # 流式调用 Anthropic API，逐 token 发布事件并返回 LlmResponse；网络中断时自动重试
     async def chat(
@@ -111,20 +125,23 @@ class AnthropicProvider:
 
         kwargs: dict[str, object] = {
             "model": self._model,
-            "max_tokens": 8192,
+            "max_tokens": self._max_tokens,
             "system": system_blocks,
             "messages": messages,
         }
         if self._is_deepseek:
-            # 当前循环没有保存 reasoning block；关闭思考模式可保证多轮工具调用兼容。
-            kwargs["extra_body"] = {"reasoning": {"effort": "none"}}
+            # DeepSeek 的 Anthropic 端点默认开思考；显式关闭以换取更低延迟与输出成本。
+            # 注意字段名必须是 Anthropic 原生的 thinking，早期写的 reasoning.effort 会被静默忽略。
+            kwargs["thinking"] = {"type": "enabled" if self._deepseek_thinking else "disabled"}
+            if self._deepseek_thinking:
+                kwargs["output_config"] = {"effort": self._deepseek_thinking_effort}
         if tools:
             kwargs["tools"] = tools
 
         text_parts: list[str] = []
         final_message: Any = None
 
-        for attempt in range(1, _MAX_STREAM_RETRIES + 1):
+        for attempt in range(1, self._max_stream_retries + 1):
             text_parts = []
             try:
                 async with self._client.messages.stream(**kwargs) as stream:
@@ -136,10 +153,10 @@ class AnthropicProvider:
                     final_message = await stream.get_final_message()
                 break  # success
             except (httpx.RemoteProtocolError, httpx.ReadError, httpx.ConnectError) as exc:
-                if attempt == _MAX_STREAM_RETRIES:
+                if attempt == self._max_stream_retries:
                     log.error(
                         "stream failed after %d attempts run_id=%s step=%d: %s",
-                        _MAX_STREAM_RETRIES, run_id, step, exc,
+                        self._max_stream_retries, run_id, step, exc,
                     )
                     raise
                 delay = _RETRY_BACKOFF_S[attempt - 1]
@@ -177,7 +194,13 @@ class AnthropicProvider:
                 )
             elif block.type == "thinking":
                 # thinking blocks must be passed back verbatim in subsequent requests
-                thinking_blocks.append({"type": "thinking", "thinking": block.thinking, "signature": block.signature})
+                thinking_blocks.append(
+                    {
+                        "type": "thinking",
+                        "thinking": block.thinking,
+                        "signature": block.signature,
+                    }
+                )
 
         return LlmResponse(
             stop_reason=final_message.stop_reason or "end_turn",

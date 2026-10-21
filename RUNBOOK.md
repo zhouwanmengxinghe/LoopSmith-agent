@@ -84,6 +84,22 @@ make verify-s0                        # 完整验证（lint + 类型 + 测试 + 
 
 ---
 
+## Windows 说明
+
+- `core start` 使用 `DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP` 启动守护进程，
+  `core stop` 通过 `taskkill /T /F` 结束整棵进程树（含 MCP 子进程）。
+- `core status` 用 `OpenProcess` + `GetExitCodeProcess` 判断存活，不再使用
+  `os.kill(pid, 0)`（Windows 上会抛 `WinError 87`）。
+- `bash` 工具按 Git Bash → PowerShell → `cmd.exe` 顺序选择 shell；建议安装
+  [Git for Windows](https://git-scm.com/download/win)，否则 agent 发出的 `ls`/`grep`/`cat`
+  在 `cmd.exe` 下不可用。
+- MCP stdio server 若入口是 `.cmd`/`.bat`（如 `npx`），会自动解析为完整路径并经
+  `cmd.exe /c` 启动。
+- 所有 JSON / JSONL / 日志统一以 UTF-8 读写，不受系统代码页（cp936）影响。
+- 没有 `make` 时，直接执行 `Makefile` 中对应的 `uv run ...` 命令。
+
+---
+
 ## 日志
 
 ```bash

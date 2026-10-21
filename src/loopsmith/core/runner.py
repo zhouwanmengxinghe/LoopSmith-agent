@@ -13,7 +13,7 @@ from loopsmith.core.context import ExecutionContext
 from loopsmith.core.events.bus import EventBus, EventHandler
 from loopsmith.core.events.writer import EventWriter
 from loopsmith.core.llm.base import LLMProvider
-from loopsmith.core.llm.provider import AnthropicProvider
+from loopsmith.core.llm.factory import create_provider
 from loopsmith.core.loop import AgentLoop
 from loopsmith.core.mcp.server import McpServerManager
 from loopsmith.core.memory.loader import load_context_file
@@ -188,10 +188,7 @@ class AgentRunner:
 
             cancelled = False
             try:
-                provider: LLMProvider = self._provider or AnthropicProvider(
-                    self._config.llm.default_model,
-                    base_url=self._config.llm.base_url,
-                )
+                provider: LLMProvider = self._provider or create_provider(self._config.llm)
                 if self._trace is not None:
                     provider = TracingProvider(
                         provider,

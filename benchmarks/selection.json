@@ -1,0 +1,294 @@
+{
+  "schema_version": 1,
+  "seed": 20261018,
+  "quixbugs_commit": "4257f44b0ff1181dedaedee6a447e133219fcebf",
+  "swe_dataset": "SWE-bench/SWE-bench_Verified",
+  "swe_snapshot_sha256": "cba18a46dc5944ab7380b3cb9af02ab96641604b867356571f7a6a9dbabdc5b5",
+  "selection": "repository round-robin, SHA256(seed:instance_id)",
+  "status": "candidate_set_environment_preflight_required",
+  "manifest_sha256": "0d45fdafd650e3c77ab4a199f67d99c82466a03545349d560d6ff5b2d2d4eae4",
+  "quixbugs": [
+    {
+      "instance_id": "quixbugs-find_in_sorted",
+      "program": "find_in_sorted",
+      "split": "development",
+      "editable_path": "python_programs/find_in_sorted.py",
+      "goal": "Fix find_in_sorted in python_programs/find_in_sorted.py. Preserve its public interface."
+    },
+    {
+      "instance_id": "quixbugs-flatten",
+      "program": "flatten",
+      "split": "development",
+      "editable_path": "python_programs/flatten.py",
+      "goal": "Fix flatten in python_programs/flatten.py. Preserve its public interface."
+    },
+    {
+      "instance_id": "quixbugs-gcd",
+      "program": "gcd",
+      "split": "development",
+      "editable_path": "python_programs/gcd.py",
+      "goal": "Fix gcd in python_programs/gcd.py. Preserve its public interface."
+    },
+    {
+      "instance_id": "quixbugs-get_factors",
+      "program": "get_factors",
+      "split": "development",
+      "editable_path": "python_programs/get_factors.py",
+      "goal": "Fix get_factors in python_programs/get_factors.py. Preserve its public interface."
+    },
+    {
+      "instance_id": "quixbugs-is_valid_parenthesization",
+      "program": "is_valid_parenthesization",
+      "split": "development",
+      "editable_path": "python_programs/is_valid_parenthesization.py",
+      "goal": "Fix is_valid_parenthesization in python_programs/is_valid_parenthesization.py. Preserve its public interface."
+    },
+    {
+      "instance_id": "quixbugs-next_permutation",
+      "program": "next_permutation",
+      "split": "development",
+      "editable_path": "python_programs/next_permutation.py",
+      "goal": "Fix next_permutation in python_programs/next_permutation.py. Preserve its public interface."
+    },
+    {
+      "instance_id": "quixbugs-lis",
+      "program": "lis",
+      "split": "development",
+      "editable_path": "python_programs/lis.py",
+      "goal": "Fix lis in python_programs/lis.py. Preserve its public interface."
+    },
+    {
+      "instance_id": "quixbugs-max_sublist_sum",
+      "program": "max_sublist_sum",
+      "split": "development",
+      "editable_path": "python_programs/max_sublist_sum.py",
+      "goal": "Fix max_sublist_sum in python_programs/max_sublist_sum.py. Preserve its public interface."
+    },
+    {
+      "instance_id": "quixbugs-mergesort",
+      "program": "mergesort",
+      "split": "development",
+      "editable_path": "python_programs/mergesort.py",
+      "goal": "Fix mergesort in python_programs/mergesort.py. Preserve its public interface."
+    },
+    {
+      "instance_id": "quixbugs-rpn_eval",
+      "program": "rpn_eval",
+      "split": "development",
+      "editable_path": "python_programs/rpn_eval.py",
+      "goal": "Fix rpn_eval in python_programs/rpn_eval.py. Preserve its public interface."
+    }
+  ],
+  "swe_bench": [
+    {
+      "instance_id": "astropy__astropy-7671",
+      "repo": "astropy/astropy",
+      "base_commit": "a7141cd90019b62688d507ae056298507678c058",
+      "split": "evaluation",
+      "environment_status": "not_checked"
+    },
+    {
+      "instance_id": "django__django-13346",
+      "repo": "django/django",
+      "base_commit": "9c92924cd5d164701e2514e1c2d6574126bd7cc2",
+      "split": "evaluation",
+      "environment_status": "not_checked"
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-22865",
+      "repo": "matplotlib/matplotlib",
+      "base_commit": "c6c7ec1978c22ae2c704555a873d0ec6e1e2eaa8",
+      "split": "evaluation",
+      "environment_status": "not_checked"
+    },
+    {
+      "instance_id": "mwaskom__seaborn-3187",
+      "repo": "mwaskom/seaborn",
+      "base_commit": "22cdfb0c93f8ec78492d87edb810f10cb7f57a31",
+      "split": "evaluation",
+      "environment_status": "not_checked"
+    },
+    {
+      "instance_id": "pallets__flask-5014",
+      "repo": "pallets/flask",
+      "base_commit": "7ee9ceb71e868944a46e1ff00b506772a53a4f1d",
+      "split": "evaluation",
+      "environment_status": "not_checked"
+    },
+    {
+      "instance_id": "psf__requests-2931",
+      "repo": "psf/requests",
+      "base_commit": "5f7a3a74aab1625c2bb65f643197ee885e3da576",
+      "split": "evaluation",
+      "environment_status": "not_checked"
+    },
+    {
+      "instance_id": "pydata__xarray-6938",
+      "repo": "pydata/xarray",
+      "base_commit": "c4e40d991c28be51de9ac560ce895ac7f9b14924",
+      "split": "evaluation",
+      "environment_status": "not_checked"
+    },
+    {
+      "instance_id": "pylint-dev__pylint-6528",
+      "repo": "pylint-dev/pylint",
+      "base_commit": "273a8b25620467c1e5686aa8d2a1dbb8c02c78d0",
+      "split": "evaluation",
+      "environment_status": "not_checked"
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7205",
+      "repo": "pytest-dev/pytest",
+      "base_commit": "5e7f1ab4bf58e473e5d7f878eb2b499d7deabd29",
+      "split": "evaluation",
+      "environment_status": "not_checked"
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-10297",
+      "repo": "scikit-learn/scikit-learn",
+      "base_commit": "b90661d6a46aa3619d3eec94d5281f5888add501",
+      "split": "evaluation",
+      "environment_status": "not_checked"
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-9711",
+      "repo": "sphinx-doc/sphinx",
+      "base_commit": "81a4fd973d4cfcb25d01a7b0be62cdb28f82406d",
+      "split": "evaluation",
+      "environment_status": "not_checked"
+    },
+    {
+      "instance_id": "sympy__sympy-16792",
+      "repo": "sympy/sympy",
+      "base_commit": "09786a173e7a0a488f46dd6000177c23e5d24eed",
+      "split": "evaluation",
+      "environment_status": "not_checked"
+    },
+    {
+      "instance_id": "astropy__astropy-14365",
+      "repo": "astropy/astropy",
+      "base_commit": "7269fa3e33e8d02485a647da91a5a2a60a06af61",
+      "split": "evaluation",
+      "environment_status": "not_checked"
+    },
+    {
+      "instance_id": "django__django-11149",
+      "repo": "django/django",
+      "base_commit": "e245046bb6e8b32360aa48b8a41fb7050f0fc730",
+      "split": "evaluation",
+      "environment_status": "not_checked"
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-20826",
+      "repo": "matplotlib/matplotlib",
+      "base_commit": "a0d2e399729d36499a1924e5ca5bc067c8396810",
+      "split": "evaluation",
+      "environment_status": "not_checked"
+    },
+    {
+      "instance_id": "mwaskom__seaborn-3069",
+      "repo": "mwaskom/seaborn",
+      "base_commit": "54cab15bdacfaa05a88fbc5502a5b322d99f148e",
+      "split": "evaluation",
+      "environment_status": "not_checked"
+    },
+    {
+      "instance_id": "psf__requests-2317",
+      "repo": "psf/requests",
+      "base_commit": "091991be0da19de9108dbe5e3752917fea3d7fdc",
+      "split": "evaluation",
+      "environment_status": "not_checked"
+    },
+    {
+      "instance_id": "pydata__xarray-7229",
+      "repo": "pydata/xarray",
+      "base_commit": "3aa75c8d00a4a2d4acf10d80f76b937cadb666b7",
+      "split": "evaluation",
+      "environment_status": "not_checked"
+    },
+    {
+      "instance_id": "pylint-dev__pylint-7277",
+      "repo": "pylint-dev/pylint",
+      "base_commit": "684a1d6aa0a6791e20078bc524f97c8906332390",
+      "split": "evaluation",
+      "environment_status": "not_checked"
+    },
+    {
+      "instance_id": "pytest-dev__pytest-5840",
+      "repo": "pytest-dev/pytest",
+      "base_commit": "73c5b7f4b11a81e971f7d1bb18072e06a87060f4",
+      "split": "evaluation",
+      "environment_status": "not_checked"
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-13328",
+      "repo": "scikit-learn/scikit-learn",
+      "base_commit": "37b0e66c871e8fb032a9c7086b2a1d5419838154",
+      "split": "evaluation",
+      "environment_status": "not_checked"
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-8475",
+      "repo": "sphinx-doc/sphinx",
+      "base_commit": "3ea1ec84cc610f7a9f4f6b354e264565254923ff",
+      "split": "evaluation",
+      "environment_status": "not_checked"
+    },
+    {
+      "instance_id": "sympy__sympy-16766",
+      "repo": "sympy/sympy",
+      "base_commit": "b8fe457a02cc24b3470ff678d0099c350b7fef43",
+      "split": "evaluation",
+      "environment_status": "not_checked"
+    },
+    {
+      "instance_id": "astropy__astropy-14995",
+      "repo": "astropy/astropy",
+      "base_commit": "b16c7d12ccbc7b2d20364b89fb44285bcbfede54",
+      "split": "evaluation",
+      "environment_status": "not_checked"
+    },
+    {
+      "instance_id": "django__django-14792",
+      "repo": "django/django",
+      "base_commit": "d89f976bddb49fb168334960acc8979c3de991fa",
+      "split": "evaluation",
+      "environment_status": "not_checked"
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-26342",
+      "repo": "matplotlib/matplotlib",
+      "base_commit": "2aee6ccd7c7e1f8d282c1e7579f4ee546b838542",
+      "split": "evaluation",
+      "environment_status": "not_checked"
+    },
+    {
+      "instance_id": "psf__requests-1142",
+      "repo": "psf/requests",
+      "base_commit": "22623bd8c265b78b161542663ee980738441c307",
+      "split": "evaluation",
+      "environment_status": "not_checked"
+    },
+    {
+      "instance_id": "pydata__xarray-6721",
+      "repo": "pydata/xarray",
+      "base_commit": "cc183652bf6e1273e985e1c4b3cba79c896c1193",
+      "split": "evaluation",
+      "environment_status": "not_checked"
+    },
+    {
+      "instance_id": "pylint-dev__pylint-4551",
+      "repo": "pylint-dev/pylint",
+      "base_commit": "99589b08de8c5a2c6cc61e13a37420a868c80599",
+      "split": "evaluation",
+      "environment_status": "not_checked"
+    },
+    {
+      "instance_id": "pytest-dev__pytest-5809",
+      "repo": "pytest-dev/pytest",
+      "base_commit": "8aba863a634f40560e25055d179220f0eefabe9a",
+      "split": "evaluation",
+      "environment_status": "not_checked"
+    }
+  ]
+}

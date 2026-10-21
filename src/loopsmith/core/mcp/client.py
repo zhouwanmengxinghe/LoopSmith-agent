@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
+import shutil
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -25,6 +27,16 @@ class McpToolDef:
     input_schema: dict[str, Any] = field(default_factory=dict)
 
 
+# Windows 的 CreateProcess 不解析 PATHEXT：npx 这类 .cmd 必须先解析为完整路径并经 cmd.exe 启动
+def _stdio_argv(command: str, args: list[str]) -> list[str]:
+    if os.name != "nt":
+        return [command, *args]
+    resolved = shutil.which(command) or command
+    if resolved.lower().endswith((".cmd", ".bat")):
+        return [os.environ.get("COMSPEC", "cmd.exe"), "/d", "/s", "/c", resolved, *args]
+    return [resolved, *args]
+
+
 # 通过 stdio 或 TCP 与 MCP server 通信的 JSON-RPC 2.0 客户端
 class McpClient:
     def __init__(self) -> None:
@@ -45,10 +57,9 @@ class McpClient:
         args: list[str],
         env: dict[str, str] | None = None,
     ) -> None:
-        import os
         merged_env = {**os.environ, **(env or {})}
         self._proc = await asyncio.create_subprocess_exec(
-            command, *args,
+            *_stdio_argv(command, args),
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
@@ -64,7 +75,9 @@ class McpClient:
 
     # 通过 TCP 连接到 MCP server 并完成 initialize 握手
     async def connect_tcp(self, host: str, port: int) -> None:
-        self._reader, tcp_writer = await asyncio.open_connection(host, port, limit=self._STREAM_LIMIT)
+        self._reader, tcp_writer = await asyncio.open_connection(
+            host, port, limit=self._STREAM_LIMIT
+        )
         self._tcp_writer = tcp_writer
         self._transport = "tcp"
         await self._initialize()
@@ -90,7 +103,8 @@ class McpClient:
             ))
         return tools
 
-    # 调用 MCP server 上的工具，返回所有 text 内容拼接；连接异常抛 McpServerUnavailableError，工具错误抛 McpToolError
+    # 调用 MCP server 上的工具，返回所有 text 内容拼接；
+    # 连接异常抛 McpServerUnavailableError，工具错误抛 McpToolError
     async def call_tool(self, name: str, arguments: dict[str, Any]) -> str:
         response = await self._call("tools/call", {"name": name, "arguments": arguments})
         parts: list[str] = []

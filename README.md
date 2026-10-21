@@ -1,6 +1,6 @@
 # LoopSmith
 
-LoopSmith 是一个使用 Python 构建的本地 AI Agent 运行时。它将 Agent 核心作为常驻守护进程运行，并通过类型化 IPC 同时服务 CLI 与 TUI 客户端，完整实现从用户目标、模型推理、工具调用、权限审批到会话持久化和事件回放的执行闭环。
+LoopSmith 面向陌生代码仓库的源码问答、问题定位和小规模代码修复，以可验证的执行结果为目标。项目使用 Python 构建本地 AI Agent 运行时，将 Agent 核心作为常驻守护进程运行，通过类型化 IPC 服务 CLI 与 TUI，提供模型推理、工具调用、权限审批、会话持久化和事件回放。独立评测与验收入口见 [BENCHMARKS.md](./BENCHMARKS.md)；当前尚无正式模型评测成绩。
 
 
 ## 架构概览
@@ -133,6 +133,7 @@ TUI 中输入 `/` 可以搜索并补全已注册的 Skill。
 - Python `3.12.x`
 - [uv](https://docs.astral.sh/uv/)
 - Anthropic API Key
+- Windows 建议安装 Git for Windows（`bash` 工具优先使用 Git Bash，详见 RUNBOOK）
 
 ### 安装
 

@@ -36,7 +36,7 @@ from loopsmith.core.bus.commands import (
 from loopsmith.core.bus.envelope import EventPushEnvelope
 from loopsmith.core.config import LoopSmithConfig, get_config
 from loopsmith.core.events.bus import EventBus
-from loopsmith.core.llm.provider import AnthropicProvider
+from loopsmith.core.llm.factory import create_provider
 from loopsmith.core.logging_setup import setup_logging
 from loopsmith.core.mcp.server import McpServerManager
 from loopsmith.core.permissions.manager import PermissionManager
@@ -56,7 +56,7 @@ def _now() -> str:
     return datetime.datetime.now(UTC).isoformat()
 
 
-# 注册 Unix 风格退出信号；Windows 不支持时返回 False 并交由 KeyboardInterrupt 关闭
+# 注册退出信号；Windows 的 ProactorEventLoop 不支持 add_signal_handler 时退回 signal.signal
 def _install_signal_handlers(
     loop: asyncio.AbstractEventLoop,
     shutdown: asyncio.Event,
@@ -64,10 +64,24 @@ def _install_signal_handlers(
     try:
         loop.add_signal_handler(signal.SIGINT, shutdown.set)
         loop.add_signal_handler(signal.SIGTERM, shutdown.set)
-    except NotImplementedError:
-        logger.debug("asyncio signal handlers are unavailable; using KeyboardInterrupt")
-        return False
-    return True
+        return True
+    except (NotImplementedError, RuntimeError):
+        logger.debug("asyncio signal handlers unavailable; falling back to signal.signal")
+
+    def _handle_signal(signum: int, frame: object) -> None:
+        logger.debug("received signal %s, requesting shutdown", signum)
+        loop.call_soon_threadsafe(shutdown.set)
+
+    # SIGBREAK 仅 Windows 存在；SIGTERM 在 Windows 上可被 os.kill 触发
+    for name in ("SIGINT", "SIGTERM", "SIGBREAK"):
+        sig = getattr(signal, name, None)
+        if sig is None:
+            continue
+        try:
+            signal.signal(sig, _handle_signal)
+        except (ValueError, OSError):
+            logger.debug("cannot install handler for %s", name)
+    return False
 
 
 class CoreApp:
@@ -201,7 +215,7 @@ class CoreApp:
             return 0
 
         count = 0
-        for line in path.read_text().splitlines():
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
             if not line:
                 continue
             try:
@@ -247,10 +261,7 @@ class CoreApp:
         sessions_root = Path("~/.loopsmith/sessions").expanduser()
         store = SessionStore(sessions_root)
         assert self._config is not None
-        compact_provider = AnthropicProvider(
-            self._config.llm.default_model,
-            base_url=self._config.llm.base_url,
-        )
+        compact_provider = create_provider(self._config.llm)
 
         self._mcp_manager = McpServerManager()
         if self._config.mcp.servers:

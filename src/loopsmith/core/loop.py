@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 from loopsmith.core.bus.events import StepFinishedEvent, StepStartedEvent
 from loopsmith.core.context import ExecutionContext
@@ -10,11 +11,15 @@ from loopsmith.core.events.bus import EventBus
 from loopsmith.core.llm.base import LLMProvider
 from loopsmith.core.tools.invocation import invoke_tool
 from loopsmith.core.tools.registry import ToolRegistry
-import logging
 
 if TYPE_CHECKING:
     from loopsmith.core.compact.compactor import Compactor
     from loopsmith.core.permissions.manager import PermissionManager
+
+    class FinishGuard(Protocol):
+        """收尾守卫接口：返回文本则不结束本轮，把文本作为提醒注入上下文。"""
+
+        async def before_finish(self, context: ExecutionContext) -> str | None: ...
 
 
 log = logging.getLogger(__name__)
@@ -24,7 +29,8 @@ def _now() -> str:
 
 
 class AgentLoop:
-    # 初始化循环所需依赖：LLM provider、工具注册表、事件总线，以及可选的权限管理器、压缩器和 session ID
+    # 初始化循环依赖：LLM provider、工具注册表、事件总线，以及可选的权限管理器、
+    # 压缩器和 session ID
     def __init__(
         self,
         provider: LLMProvider,
@@ -35,6 +41,7 @@ class AgentLoop:
         compactor: Compactor | None = None,
         compact_threshold: float = 0.80,
         session_id: str = "",
+        finish_guard: FinishGuard | None = None,
     ) -> None:
         self._provider = provider
         self._registry = registry
@@ -43,6 +50,7 @@ class AgentLoop:
         self._compactor = compactor
         self._compact_threshold = compact_threshold
         self._session_id = session_id
+        self._finish_guard = finish_guard
 
     # 驱动 plan→act→observe 循环直到上下文终止；CancelledError 向上传播
     async def run(self, context: ExecutionContext) -> None:
@@ -51,6 +59,13 @@ class AgentLoop:
             await self._bus.publish(
                 StepStartedEvent(run_id=context.run_id, step=context.step, ts=_now())
             )
+
+            # 可选评测策略在预算内提醒收敛，不增加模型调用次数
+            step_hook = getattr(self._finish_guard, "before_step", None)
+            if step_hook is not None:
+                reminder = await step_hook(context)
+                if reminder:
+                    context.add_user_message(reminder)
 
             # [plan] call LLM — API errors terminate the run
             try:
@@ -103,15 +118,25 @@ class AgentLoop:
                 for tc in response.tool_calls:
                     context.add_tool_result(
                         tc.id,
-                        "Error: output token limit reached before this tool call could be completed. "
+                        "Error: output token limit reached before this tool call could "
+                        "be completed. "
                         "Please break the task into smaller steps and try again.",
                         is_error=True,
                     )
 
             # Termination check — end_turn wins over max_steps if both hit on same step
             if response.stop_reason == "end_turn":
-                context.result = response.text or ""
-                context.mark_success()
+                # 收尾守卫：编辑后未验证等问题在这里被拦下，注入提醒继续跑。
+                # 只在还有步数预算时生效，避免把"撞上限"变成"多一次空转"。
+                nudge: str | None = None
+                if self._finish_guard is not None and context.step < context.max_steps:
+                    nudge = await self._finish_guard.before_finish(context)
+                if nudge:
+                    context.add_user_message(nudge)
+                else:
+                    context.result = response.text or ""
+                    if not context.is_done():
+                        context.mark_success()
             elif context.step >= context.max_steps:
                 context.mark_failed("exceeded_max_steps")
 
@@ -130,3 +155,8 @@ class AgentLoop:
             await self._bus.publish(
                 StepFinishedEvent(run_id=context.run_id, step=context.step, ts=_now())
             )
+
+        # 可选证据审查不发模型请求，避免最后一步结束绕过验证状态记录
+        after_run = getattr(self._finish_guard, "after_run", None)
+        if after_run is not None:
+            await after_run(context)

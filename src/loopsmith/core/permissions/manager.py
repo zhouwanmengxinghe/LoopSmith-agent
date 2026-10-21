@@ -94,7 +94,9 @@ class PermissionManager:
             # Tier 4: persistent always（跨 session）
             if tool_name in self._persistent_always:
                 cached = self._persistent_always[tool_name]
-                logger.debug("permission: persistent cache hit tool=%s decision=%s", tool_name, cached)
+                logger.debug(
+                    "permission: persistent cache hit tool=%s decision=%s", tool_name, cached
+                )
                 return cached == "allow", f"auto_{cached}"
 
             # Tier 5: allow_patterns（bash only）
@@ -112,7 +114,8 @@ class PermissionManager:
             # default == ASK（bash、unknown tool）→ fall through to Future
 
         # ASK 路径（来自 OUTSIDE_CWD 强制 ASK，或 default=ASK）
-        loop = asyncio.get_event_loop()
+        # 必须用 get_running_loop：get_event_loop 在 Windows 无当前 loop 时会抛 RuntimeError
+        loop = asyncio.get_running_loop()
         future: asyncio.Future[str] = loop.create_future()
         self._pending[tool_use_id] = _PendingRequest(
             future=future,
@@ -137,7 +140,7 @@ class PermissionManager:
                 raw = await asyncio.wait_for(future, timeout=self._timeout_s)
             else:
                 raw = await future
-        except asyncio.TimeoutError:
+        except TimeoutError:
             self._pending.pop(tool_use_id, None)
             logger.info("permission: timeout tool_use_id=%s tool=%s", tool_use_id, tool_name)
             return False, "timeout"
@@ -169,7 +172,9 @@ class PermissionManager:
                     save_policy_file(self._persistent_always, self._policy_file)
                     logger.info("permission: policy.toml written path=%s", self._policy_file)
                 except Exception:
-                    logger.exception("permission: failed to write policy.toml path=%s", self._policy_file)
+                    logger.exception(
+                        "permission: failed to write policy.toml path=%s", self._policy_file
+                    )
             else:
                 logger.warning("permission: policy_file is None, skipping persistence")
         elif decision == "always_deny":
@@ -184,7 +189,9 @@ class PermissionManager:
                     save_policy_file(self._persistent_always, self._policy_file)
                     logger.info("permission: policy.toml written path=%s", self._policy_file)
                 except Exception:
-                    logger.exception("permission: failed to write policy.toml path=%s", self._policy_file)
+                    logger.exception(
+                        "permission: failed to write policy.toml path=%s", self._policy_file
+                    )
             else:
                 logger.warning("permission: policy_file is None, skipping persistence")
         return allow
