@@ -22,3 +22,9 @@ workspace/
 .workbuddy/
 deploy/.env
 deploy/*.local.env
+
+# 个人简历材料、内部实验记录与任务交接文档仅保存在本地。
+/LOOPSMITH_RESUME_PROJECT_DOSSIER.md
+/OPTIMIZATION_RESULTS.md
+/OPTIMIZATION_ROADMAP.md
+/TASK_SWE_BASELINE.md
