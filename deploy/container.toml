@@ -1,0 +1,4 @@
+# 显式使用容器配置，避免加载目标仓库中指向宿主机路径的运行时配置。
+# 项目上下文和 .loopsmith/skills 仍由原有加载器读取。
+[trace]
+include_llm_payload = false

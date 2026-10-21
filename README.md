@@ -162,6 +162,20 @@ LOOPSMITH_LLM_DEFAULT_MODEL=claude-sonnet-4-6
 
 ### 启动与使用
 
+也可以使用 Docker 一键启动 Core 和 TUI，无需在宿主机安装 Python。复制 `deploy/.env.example` 为 `deploy/.env`，填写 API 密钥和目标仓库路径，再执行：
+
+```powershell
+# Windows
+.\start.ps1
+```
+
+```bash
+# Linux / macOS
+bash start.sh
+```
+
+启动脚本会构建镜像、等待 Core 健康并进入聊天。配置、代理、会话持久化及日常管理见 [Docker 部署说明](deploy/README.md)。
+
 后台启动 Core：
 
 ```bash

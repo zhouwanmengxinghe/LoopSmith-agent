@@ -20,3 +20,5 @@ workspace/
 .analysis-test-tmp/
 .pytest-tmp/
 .workbuddy/
+deploy/.env
+deploy/*.local.env

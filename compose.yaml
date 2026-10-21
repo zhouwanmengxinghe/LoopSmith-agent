@@ -1,0 +1,50 @@
+name: loopsmith
+
+services:
+  agent:
+    image: ${LOOPSMITH_IMAGE:-loopsmith:local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_UID: ${LOOPSMITH_UID:-1000}
+        APP_GID: ${LOOPSMITH_GID:-1000}
+        HTTP_PROXY: ${LOOPSMITH_BUILD_PROXY:-}
+        HTTPS_PROXY: ${LOOPSMITH_BUILD_PROXY:-}
+        http_proxy: ${LOOPSMITH_BUILD_PROXY:-}
+        https_proxy: ${LOOPSMITH_BUILD_PROXY:-}
+        NO_PROXY: localhost,127.0.0.1,::1
+        no_proxy: localhost,127.0.0.1,::1
+    init: true
+    restart: unless-stopped
+    working_dir: /workspace
+    env_file:
+      - ${LOOPSMITH_ENV_FILE:-./deploy/.env}
+    environment:
+      HOME: /home/loopsmith
+      LOOPSMITH_HOST: 127.0.0.1
+      LOOPSMITH_PORT: "7437"
+      LOOPSMITH_CONFIG: ${LOOPSMITH_CONTAINER_CONFIG:-/opt/loopsmith/deploy/container.toml}
+      LOOPSMITH_LOG_FILE: /home/loopsmith/.loopsmith/logs/core.log
+      LOOPSMITH_TRACE_FILE: /home/loopsmith/.loopsmith/trace.jsonl
+      HTTP_PROXY: ${LOOPSMITH_CONTAINER_PROXY:-}
+      HTTPS_PROXY: ${LOOPSMITH_CONTAINER_PROXY:-}
+      http_proxy: ${LOOPSMITH_CONTAINER_PROXY:-}
+      https_proxy: ${LOOPSMITH_CONTAINER_PROXY:-}
+      NO_PROXY: localhost,127.0.0.1,::1
+      no_proxy: localhost,127.0.0.1,::1
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - type: bind
+        source: ${LOOPSMITH_WORKSPACE:-.}
+        target: /workspace
+        bind:
+          create_host_path: false
+      - type: volume
+        source: agent-data
+        target: /home/loopsmith/.loopsmith
+    stop_grace_period: 20s
+
+volumes:
+  agent-data:

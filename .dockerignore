@@ -1,0 +1,12 @@
+# 仅向构建器发送应用源码与必需构建文件；密钥、历史、数据和用户仓库不进入构建上下文。
+**
+!Dockerfile
+!pyproject.toml
+!README.md
+!src/
+!src/**
+!deploy/
+!deploy/healthcheck.py
+!deploy/container.toml
+**/__pycache__/
+**/*.pyc
